@@ -1,22 +1,26 @@
-from django.db import IntegrityError
+from django.db import IntegrityError, DataError
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from products.models import Products
+import json
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt
 def add_products(request):
-    try:
-        products = Products(
-        name = 'carte graphique',
-        price = 500,
-        stock= 9,
-        image = 'https://www.sbsinformatique.com/8163/tunisie/large/carte-graphique-asus-rog-strix-geforce-rtx-3080-ti-oc-12g-gaming-tunisie.jpg',
-        barcode = 748374856
-        )
-        products.save()
-        # return render(request, 'response.html', {'product': product})
-        return HttpResponse('adding products successfully')
-    except IntegrityError as e:
-        return HttpResponse('errors {}'.format(e))
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            products = Products(
+            name = data.get('name'),
+            price = data.get('price'),
+            stock= data.get('stock'),
+            image = data.get('image'),
+            barcode = data.get('barcode')
+            )
+            products.save()
+            return HttpResponse('adding products successfully')
+        except (IntegrityError, ValueError, json.JSONDecodeError, DataError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
 
 def get_products(request):
     if request.method == 'GET':
