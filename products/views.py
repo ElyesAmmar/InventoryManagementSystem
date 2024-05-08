@@ -36,6 +36,61 @@ def get_products(request):
                     'barcode': obj.barcode
                 })
             return JsonResponse({'data': array})
-            # return HttpResponse(data_objects)
-        except:
-            return HttpResponse('errors')
+            # return HttpResponse(data_objects.values())
+        except (IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+
+@csrf_exempt   
+def update_product(request, id):
+    if request.method == 'PUT':
+        try:
+            req = json.loads(request.body)
+            # prod = Products.objects.filter(id=_id)
+            product = Products.objects.get(pk=id)
+
+            # update product depending on the request key & value
+            for key, value in req.items():
+                setattr(product, key, value)
+            product.save()
+
+            return HttpResponse('updating product successfully')
+        
+        except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+        
+    if request.method == 'DELETE':
+        try:
+            product = Products.objects.get(pk=id)
+            product.delete()
+            return HttpResponse('product deleted successfully')
+        
+        except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+
+def filter_products(request):
+    if request.method == 'GET':
+        try:
+            req = json.loads(request.body)
+            product = {}
+            #filter by barcode 
+            if list(req.keys())[0] == 'barcode':
+                product = Products.objects.filter(barcode= req['barcode'])
+            
+            # filter by name
+            if list(req.keys())[0] == 'name':
+                product = Products.objects.filter(name__contains= req['name'])
+                
+            array = []
+            for obj in product:
+                array.append({
+                    'name': obj.name,
+                    'price': obj.price,
+                    'stock': obj.stock,
+                    'image': obj.image,
+                    'barcode': obj.barcode
+                })
+            return JsonResponse({'data': array})
+        
+        except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+
