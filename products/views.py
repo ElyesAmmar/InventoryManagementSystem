@@ -22,10 +22,10 @@ def add_products(request):
         except (IntegrityError, ValueError, json.JSONDecodeError, DataError) as e:
             return HttpResponse('errors {}'.format(e), status=400)
 
-def get_products(request):
+def get_products(request, user_id):
     if request.method == 'GET':
         try:
-            data_objects = Products.objects.all()
+            data_objects = Products.objects.filter(user_id= user_id)
             array = []
             for obj in data_objects:
                 array.append({
@@ -78,7 +78,7 @@ def filter_products(request):
             
             # filter by name
             if list(req.keys())[0] == 'name':
-                product = Products.objects.filter(name__contains= req['name'])
+                product = Products.objects.filter(user_id= req['user_id'], name__contains= req['name'])
                 
             array = []
             for obj in product:
