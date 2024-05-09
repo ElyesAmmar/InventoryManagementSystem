@@ -6,20 +6,22 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 
 @csrf_exempt
-def add_products(request):
+def add_products(request, user_id):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             products = Products(
+            user_id = user_id,
             name = data.get('name'),
             price = data.get('price'),
             stock= data.get('stock'),
             image = data.get('image'),
-            barcode = data.get('barcode')
+            barcode = data.get('barcode'),
+            category = data.get('category')
             )
             products.save()
             return HttpResponse('adding products successfully')
-        except (IntegrityError, ValueError, json.JSONDecodeError, DataError) as e:
+        except (IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
             return HttpResponse('errors {}'.format(e), status=400)
 
 def get_products(request, user_id):
