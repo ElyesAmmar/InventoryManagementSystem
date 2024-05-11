@@ -13,6 +13,7 @@ def get_orders(request, user_id):
     if request.method == 'GET':
         try:
             orders = []
+            # check if the request is filtring by date
             if request.body:
                 data = json.loads(request.body)
                 if len(data) > 0:
@@ -21,8 +22,10 @@ def get_orders(request, user_id):
                         created_at__gte= data['date'][0],
                         created_at__lte= data['date'][1]
                         )
+            # else if not filtring by date get all the orders
             else:
                 orders = Orders.objects.filter(user_id= user_id)
+
             array = []
             for ord in orders:
                 array.append({
