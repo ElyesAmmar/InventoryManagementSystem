@@ -12,8 +12,28 @@ from django.views.decorators.csrf import csrf_exempt
 def get_orders(request, user_id):
     if request.method == 'GET':
         try:
-            orders = Orders.objects.filter(user_id= user_id)
-            return HttpResponse(orders.values())
+            orders = []
+            if request.body:
+                data = json.loads(request.body)
+                if len(data) > 0:
+                    orders = Orders.objects.filter(
+                        user_id= user_id,
+                        created_at__gte= data['date'][0],
+                        created_at__lte= data['date'][1]
+                        )
+            else:
+                orders = Orders.objects.filter(user_id= user_id)
+            array = []
+            for ord in orders:
+                array.append({
+                    'user_id': ord.user_id,
+                    'order_num': ord.order_num,
+                    'created_at': ord.created_at,
+                    'customer_id': ord.customer_id,
+                    'total_amount': ord.total_amount,
+                    'shipping_address': ord.shipping_address
+                })
+            return JsonResponse({'data': array})
         except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
             return HttpResponse('errors {}'.format(e), status=400)
 
