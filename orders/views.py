@@ -1,11 +1,12 @@
 from django.db import IntegrityError, DataError
 from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from orders.models import Orders, OrdersItems
 from products.models import Products
 from customers.models import Customers
 import json
+from reportlab.pdfgen import canvas
 from django.views.decorators.csrf import csrf_exempt
 
 
@@ -37,39 +38,6 @@ def get_orders(request, user_id):
                     'shipping_address': ord.shipping_address
                 })
             return JsonResponse({'data': array})
-        except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
-            return HttpResponse('errors {}'.format(e), status=400)
-
-def get_order_details(request, id):
-    if request.method == 'GET':
-        try:
-            order = Orders.objects.get(pk = id)
-            customer = Customers.objects.get(pk = order.customer_id)
-            order_items = OrdersItems.objects.filter(order_id = id)
-            products = []
-            for item in order_items:
-                product = Products.objects.get(pk = item.product_id)
-                products.append({
-                    'name': product.name,
-                    'unit_price': item.unit_price,
-                    'quantity': item.quantity,
-                    'total_price': item.total_price
-                })
-            order_data = {
-                'order_num': order.order_num,
-                'order_date': order.created_at,
-                'customer': {
-                    'name': customer.name,
-                    'adresse': customer.adresse,
-                    'phone': customer.phone,
-                    'company': customer.company,
-                    'email': customer.email
-                },
-                'shipping_address': order.shipping_address,
-                'products': products,
-                'total_amount': order.total_amount
-            }
-            return JsonResponse(order_data)
         except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
             return HttpResponse('errors {}'.format(e), status=400)
 
@@ -147,4 +115,99 @@ def update_order(request, id):
             return HttpResponse('updating order successfully')
         except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
             return HttpResponse('errors {}'.format(e), status=400)
+
+# retrieve order from db
+def get_order_function(id):
+    order = Orders.objects.get(pk = id)
+    customer = Customers.objects.get(pk = order.customer_id)
+    order_items = OrdersItems.objects.filter(order_id = id)
+    products = []
+    for item in order_items:
+        product = Products.objects.get(pk = item.product_id)
+        products.append({
+            'name': product.name,
+            'unit_price': item.unit_price,
+            'quantity': item.quantity,
+            'total_price': item.total_price
+        })
+    order_data = {
+        'order_num': order.order_num,
+        'order_date': order.created_at,
+        'customer': {
+            'name': customer.name,
+            'address': customer.adresse,
+            'phone': customer.phone,
+            'company': customer.company,
+            'email': customer.email
+        },
+        'shipping_address': order.shipping_address,
+        'products': products,
+        'total_amount': order.total_amount
+    }
+    return order_data
+
+# send json order to client side 
+def get_order_details(request, id):
+    if request.method == 'GET':
+        try:
+            order_data = get_order_function(id)
+            return JsonResponse(order_data)
+        except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+
+def generate_invoice(request, id):
+    from reportlab.lib.colors import pink, black, red, blue, green
+    try:
+        from io import BytesIO
+
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer)
+
+        # create invoice pdf 
+        order = get_order_function(id)
+
+        p.drawString(50, 800, "Title")
+
+        
+        # company details
+        p.drawString(400, 800, "Elyes Ammar")
+        p.setFillColor(red)
+        p.setFont("Times-Roman", 20)
+        p.drawString(400, 780, "8000 Nabeul")
+        p.drawString(400, 760, "50253720")
+
+        #customer details
+        p.drawString(50, 700, "Invoice")
+        p.drawString(50, 680, "Billed to:")
+        p.drawString(50, 660, f"{order['customer']['name']}")
+        p.drawString(50, 640, f"{order['customer']['address']}")
+        p.drawString(50, 620, f"{order['customer']['company']}")
+        p.drawString(50, 600, f"{order['customer']['phone']}")
+        
+        p.drawString(350, 680, f"Invoice No: {order['order_num']}")
+        p.drawString(350, 660, f"Date: {order['order_date']}")
+        
+        #products details
+        p.drawString(70, 550, "Items")
+        p.drawString(250, 550, "Quantity")
+        p.drawString(350, 550, "Unit price")
+        p.drawString(450, 550, "Total")
+
+        y = 520
+        for prod in order['products']:
+            p.drawString(60, y, f"{prod['name']}")
+            p.drawString(250, y, f"{prod['quantity']}")
+            p.drawString(350, y, f"{prod['unit_price']}")
+            p.drawString(450, y, f"{prod['total_price']}")
+            y-= 30
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+
+        return FileResponse(buffer, as_attachment=True, filename=f'invoice {order['order_num']}.pdf')
+
+    except(IntegrityError, ValueError, json.JSONDecodeError, DataError, TypeError) as e:
+            return HttpResponse('errors {}'.format(e), status=400)
+
 
